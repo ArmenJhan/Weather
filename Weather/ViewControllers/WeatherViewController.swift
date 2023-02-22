@@ -11,43 +11,39 @@ class WeatherViewController: UIViewController {
     
     // MARK: UIView properties
     lazy var backgroundImage: UIImageView = {
-        let image = UIImageView(image: UIImage(named: "Light Background"))
+        let image = UIImageView(image: UIImage(named: "background"))
         image.contentMode = .scaleAspectFill
-        
         image.translatesAutoresizingMaskIntoConstraints = false
         return image
     }()
     
-    var textField: UITextField = {
+    var searchTextField: UITextField = {
         let textField = UITextField()
         textField.placeholder = "Search"
         textField.textAlignment = .right
         textField.autocapitalizationType = .words
+        textField.font = .systemFont(ofSize: 25, weight: .regular)
         textField.returnKeyType = .go
         textField.borderStyle = .roundedRect
         textField.backgroundColor = .systemFill
         textField.translatesAutoresizingMaskIntoConstraints = false
         return textField
     }()
-    //
+    
     lazy var locationBatton: UIButton = {
-        
-        let button = UIButton(type: .system)
-        button.contentMode = .scaleToFill
-        button.setBackgroundImage(UIImage(systemName: "location.circle.fill"), for: .normal)
-        button.tintColor = .black
-        button.widthAnchor.constraint(equalToConstant: 40).isActive = true
-        button.heightAnchor.constraint(equalToConstant: 40).isActive = true
-        
-        button.translatesAutoresizingMaskIntoConstraints = false
-        return button
+        createButton(
+            with: "location.circle.fill",
+            and: UIAction { [unowned self] _ in
+                checkLocation()
+            }
+        )
     }()
     
     lazy var searchButton: UIButton = {
         createButton(
             with: "magnifyingglass",
-            and:UIAction { [unowned self] _ in
-                dismiss(animated: true)
+            and: UIAction { [unowned self] _ in
+                searchTapped()
             }
         )
     }()
@@ -58,8 +54,9 @@ class WeatherViewController: UIViewController {
         stack.alignment = .fill
         stack.distribution = .fill
         stack.spacing = 10
+        stack.contentMode = .scaleToFill
         stack.addArrangedSubview(locationBatton)
-        stack.addArrangedSubview(textField)
+        stack.addArrangedSubview(searchTextField)
         stack.addArrangedSubview(searchButton)
         stack.translatesAutoresizingMaskIntoConstraints = false
         return stack
@@ -70,7 +67,7 @@ class WeatherViewController: UIViewController {
         image.contentMode = .scaleAspectFit
         image.heightAnchor.constraint(equalToConstant: 120).isActive = true
         image.widthAnchor.constraint(equalToConstant: 120).isActive = true
-        image.tintColor = .black
+        image.tintColor = .label
         image.translatesAutoresizingMaskIntoConstraints = false
         return image
     }()
@@ -104,22 +101,49 @@ class WeatherViewController: UIViewController {
         return stack
     }()
     
+    var networkManager = NetworkManager()
+
     // MARK: ViewController Life Circle
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        textField.delegate = self
+        view.backgroundColor = .white
+        networkManager.delegate = self
+        searchTextField.delegate = self
         
         setupSubview(backgroundImage, uiStackView, conditionImageView, tempStackView, cityNameLabel)
         setConstraints()
     }
     
+    private func searchTapped() {
+        searchTextField.endEditing(true)
+    }
     
+    private func checkLocation() {
+        
+    }
 }
+
+// MARK: NetworkManagerDelegate
+extension WeatherViewController: NetworkManagerDelegate {
+    func didUpdateWeather(_ networkManager: NetworkManager, weather: WeatherModel) {
+        DispatchQueue.main.async {
+            self.tempLabel.text = weather.temperatureString
+            self.conditionImageView.image = UIImage(systemName: weather.conditionName)
+            self.cityNameLabel.text = weather.cityName
+            print(weather.description)
+        }
+    }
+
+    func didFailWithError(error: Error) {
+        print(error)
+    }
+}
+
+// MARK: UITextFieldDelegate
 
 extension WeatherViewController: UITextFieldDelegate {
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-        self.textField.endEditing(true)
+        searchTextField.endEditing(true)
         return true
     }
     
@@ -133,17 +157,20 @@ extension WeatherViewController: UITextFieldDelegate {
     }
     
     func textFieldDidEndEditing(_ textField: UITextField) {
-        self.textField.text = ""
+        guard let city = searchTextField.text else { return }
+        networkManager.fetchWeather(cityName: city)
+        
+        self.searchTextField.text = ""
     }
 }
 
-// MARK: UI
+// MARK: Create UI and Constraints
 extension WeatherViewController {
     private func createButton(with systemName: String, and action: UIAction) -> UIButton {
         let button = UIButton(type: .system, primaryAction: action)
         button.contentMode = .scaleToFill
         button.setBackgroundImage(UIImage(systemName: systemName), for: .normal)
-        button.tintColor = .black
+        button.tintColor = .label
         button.widthAnchor.constraint(equalToConstant: 40).isActive = true
         button.heightAnchor.constraint(equalToConstant: 40).isActive = true
         
@@ -153,7 +180,7 @@ extension WeatherViewController {
     
     private func createLabel(with title: String, andSize size: CGFloat, weight: UIFont.Weight) -> UILabel {
         let label = UILabel()
-        label.textColor = .black
+        label.textColor = .label
         label.text = title
         label.font = .systemFont(ofSize: size, weight: weight)
         label.translatesAutoresizingMaskIntoConstraints = false
