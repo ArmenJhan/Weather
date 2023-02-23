@@ -6,10 +6,11 @@
 //
 
 import UIKit
+import CoreLocation
 
 class WeatherViewController: UIViewController {
     
-    // MARK: UIView properties
+    // MARK: - UIView properties
     lazy var backgroundImage: UIImageView = {
         let image = UIImageView(image: UIImage(named: "background"))
         image.contentMode = .scaleAspectFill
@@ -102,35 +103,52 @@ class WeatherViewController: UIViewController {
     }()
     
     var networkManager = NetworkManager()
+    let locationManager = CLLocationManager()
 
-    // MARK: ViewController Life Circle
+    // MARK: -  ViewController Life Circle
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .white
+        
+        locationManager.delegate = self
+        locationManager.requestWhenInUseAuthorization()
+        locationManager.requestLocation()
+        
         networkManager.delegate = self
         searchTextField.delegate = self
         
         setupSubview(backgroundImage, uiStackView, conditionImageView, tempStackView, cityNameLabel)
         setConstraints()
-    }
-    
-    private func searchTapped() {
-        searchTextField.endEditing(true)
+        
     }
     
     private func checkLocation() {
-        
+        locationManager.requestLocation()
+    }
+    
+}
+
+// MARK: - CLLocationManagerDelegate
+extension WeatherViewController: CLLocationManagerDelegate {
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        if let location = locations.last {
+            let lat = location.coordinate.latitude
+            let lon = location.coordinate.longitude
+            networkManager.fetchWeather(latitude: lat, longitude: lon)
+        }
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        print(error)
     }
 }
 
-// MARK: NetworkManagerDelegate
+// MARK: - NetworkManagerDelegate
 extension WeatherViewController: NetworkManagerDelegate {
     func didUpdateWeather(_ networkManager: NetworkManager, weather: WeatherModel) {
         DispatchQueue.main.async {
             self.tempLabel.text = weather.temperatureString
             self.conditionImageView.image = UIImage(systemName: weather.conditionName)
             self.cityNameLabel.text = weather.cityName
-            print(weather.description)
         }
     }
 
@@ -139,9 +157,13 @@ extension WeatherViewController: NetworkManagerDelegate {
     }
 }
 
-// MARK: UITextFieldDelegate
-
+// MARK: - UITextFieldDelegate
 extension WeatherViewController: UITextFieldDelegate {
+    private func searchTapped() {
+        searchTextField.endEditing(true)
+        
+    }
+    
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
         searchTextField.endEditing(true)
         return true
@@ -159,12 +181,12 @@ extension WeatherViewController: UITextFieldDelegate {
     func textFieldDidEndEditing(_ textField: UITextField) {
         guard let city = searchTextField.text else { return }
         networkManager.fetchWeather(cityName: city)
-        
         self.searchTextField.text = ""
     }
 }
 
-// MARK: Create UI and Constraints
+
+// MARK: - Create UI and Constraints
 extension WeatherViewController {
     private func createButton(with systemName: String, and action: UIAction) -> UIButton {
         let button = UIButton(type: .system, primaryAction: action)
@@ -201,7 +223,7 @@ extension WeatherViewController {
                 backgroundImage.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: 0),
                 backgroundImage.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: 0),
                 
-                uiStackView.topAnchor.constraint(equalTo: view.topAnchor, constant: 70),
+                uiStackView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 5),
                 uiStackView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
                 uiStackView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
                 

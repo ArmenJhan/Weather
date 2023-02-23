@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import CoreLocation
 
 protocol NetworkManagerDelegate {
     func didUpdateWeather(_ networkManager: NetworkManager, weather: WeatherModel)
@@ -19,22 +20,30 @@ struct NetworkManager {
     
     func fetchWeather( cityName: String) {
         let urlString = "\(weatherURL)&q=\(cityName)"
-        
-        guard let url = URL(string: urlString) else {return}
-        
-        URLSession.shared.dataTask(with: url) { data, rasponse, error in
-            if error != nil {
-                delegate?.didFailWithError(error: error!)
-                print(error?.localizedDescription ?? "No error description")
-                return
-            }
-            
-            if let safeData = data {
-                if let weather = self.parseJSON(safeData) {
-                    delegate?.didUpdateWeather(self, weather: weather)
+        performRequest(with: urlString)
+    }
+    
+    func fetchWeather(latitude: CLLocationDegrees, longitude: CLLocationDegrees) {
+        let urlString = "\(weatherURL)&lat=\(latitude)&lon=\(longitude)"
+        performRequest(with: urlString)
+    }
+    
+    func performRequest(with urlString: String) {
+        if let url = URL(string: urlString) {
+            let session = URLSession(configuration: .default)
+            let task = session.dataTask(with: url) { (data, response, error) in
+                if error != nil {
+                    self.delegate?.didFailWithError(error: error!)
+                    return
+                }
+                if let safeData = data {
+                    if let weather = self.parseJSON(safeData) {
+                        self.delegate?.didUpdateWeather(self, weather: weather)
+                    }
                 }
             }
-        }.resume()
+            task.resume()
+        }
     }
     
     func parseJSON(_ weatherDate: Data) -> WeatherModel? {
@@ -42,7 +51,7 @@ struct NetworkManager {
         do {
             let weather = try decoder.decode(WeatherData.self, from: weatherDate)
             let id = weather.weather[0].id
-            let description = weather.weather.description
+            let description = weather.weather[0].description
             let temp = weather.main.temp
             let name = weather.name
             
